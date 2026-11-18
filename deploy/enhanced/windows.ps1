@@ -14,6 +14,10 @@ if ($Phase -eq 'build') {
     "-DCMAKE_PREFIX_PATH=$qt", "-DOPENSSL_ROOT_DIR=$openssl")
   cmake -S . -B build-tests @common -DBUILD_TESTS=ON
   cmake --build build-tests --config Release --parallel 4
+  # The test resolves ../../../translations relative to its executable.
+  # Visual Studio adds a Release level that single-config builds do not have.
+  New-Item -ItemType Directory -Force 'build-tests/src/translations' | Out-Null
+  Copy-Item build-tests/translations/*.qm 'build-tests/src/translations'
   $env:QT_QPA_PLATFORM = 'offscreen'
   ctest --test-dir build-tests/src/unittests -C Release --parallel 2 --no-tests=error --output-on-failure
   cmake -S . -B build @common -DDESKFLOW_CANDIDATE_BUILD=ON -DBUILD_TESTS=OFF
@@ -39,9 +43,10 @@ Copy-Item "$qt/translations/qtbase_zh_CN.qm" "$translations/qt_zh_CN.qm"
 Copy-Item LICENSE "$stage/LICENSE.txt"
 Copy-Item LICENSES "$stage/LICENSES" -Recurse
 Copy-Item deploy/enhanced/THIRD-PARTY.md "$stage/THIRD-PARTY.md"
-$opensslNotice = Join-Path $openssl 'share/openssl/copyright'
-if (!(Test-Path $opensslNotice)) { throw 'OpenSSL license missing.' }
-Copy-Item $opensslNotice "$stage/LICENSES/OpenSSL.txt"
+$opensslNotice = @('share/openssl/copyright','LICENSE.txt','LICENSE') | ForEach-Object { Join-Path $openssl $_ } | Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($opensslNotice) { Copy-Item $opensslNotice "$stage/LICENSES/OpenSSL.txt" }
+if (!(Test-Path "$stage/LICENSES/Apache-2.0.txt")) { throw 'OpenSSL license missing.' }
+if (!(Get-ChildItem $stage -File -Filter 'libssl*.dll') -or !(Get-ChildItem $stage -File -Filter 'libcrypto*.dll')) { throw 'OpenSSL runtime is incomplete.' }
 foreach ($file in 'Qt6Core.dll','Qt6Widgets.dll','platforms/qwindows.dll','translations/deskflow_zh_CN.qm', 'vcruntime140.dll') {
   if (!(Test-Path "$stage/$file")) { throw "Missing package entry $file" }
 }
