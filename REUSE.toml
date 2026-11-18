@@ -87,3 +87,9 @@ path = ["README.md", "docs/validation.md", "docs/screenshots/*.png"]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Deskflow Enhanced contributors"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["deploy/enhanced/installer.nsi", "deploy/enhanced/THIRD-PARTY.md"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Deskflow Enhanced contributors"
+SPDX-License-Identifier = "MIT"

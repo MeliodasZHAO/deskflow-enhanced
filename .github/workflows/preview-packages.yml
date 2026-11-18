@@ -36,3 +36,24 @@ jobs:
           name: windows-x64-package
           path: release-out/*
           if-no-files-found: error
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install Qt and locate OpenSSL
+        run: |
+          python3 -m venv "$RUNNER_TEMP/qt-tools"
+          "$RUNNER_TEMP/qt-tools/bin/pip" install aqtinstall==3.3.0
+          "$RUNNER_TEMP/qt-tools/bin/aqt" install-qt mac desktop 6.10.3 clang_64 -O "$RUNNER_TEMP/qt"
+          echo "QT_SDK=$RUNNER_TEMP/qt/6.10.3/macos" >> "$GITHUB_ENV"
+          echo "OPENSSL_SDK=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+      - name: Build, test and exercise the macOS disk image
+        run: bash deploy/enhanced/macos.sh "$PWD/build" "$QT_SDK" "$OPENSSL_SDK"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: macos-arm64-package
+          path: build/release-out/*
+          if-no-files-found: error
