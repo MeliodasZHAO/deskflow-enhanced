@@ -103,6 +103,18 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.git)
   endif()
 endif()
 
+set(DESKFLOW_PACKAGE_VERSION "" CACHE STRING "Four-component version for distributable packages")
+if(NOT DESKFLOW_PACKAGE_VERSION STREQUAL "")
+  if(NOT DESKFLOW_PACKAGE_VERSION MATCHES "^[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+$")
+    message(FATAL_ERROR "DESKFLOW_PACKAGE_VERSION must use four numeric components")
+  endif()
+  string(REPLACE "." ";" package_version_parts "${DESKFLOW_PACKAGE_VERSION}")
+  list(GET package_version_parts 0 DESKFLOW_VERSION_MAJOR)
+  list(GET package_version_parts 1 DESKFLOW_VERSION_MINOR)
+  list(GET package_version_parts 2 DESKFLOW_VERSION_PATCH)
+  list(GET package_version_parts 3 DESKFLOW_VERSION_TWEAK)
+endif()
+
 #generate vcpkg file if needed
 if(WIN32)
     if(VCPKG_QT)

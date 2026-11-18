@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: (C) 2026 Deskflow Enhanced contributors
+# SPDX-License-Identifier: MIT
+name: Build and test preview packages
+on:
+  workflow_dispatch:
+  push:
+    branches: [release/preview]
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install Qt and OpenSSL SDKs
+        shell: pwsh
+        run: |
+          python -m pip install aqtinstall==3.3.0
+          python -m aqt install-qt windows desktop 6.10.3 win64_msvc2022_64 -O "$env:RUNNER_TEMP/qt"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install openssl:x64-windows --classic
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          "QT_SDK=$env:RUNNER_TEMP/qt/6.10.3/msvc2022_64" >> $env:GITHUB_ENV
+          "OPENSSL_SDK=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows" >> $env:GITHUB_ENV
+      - name: Build and run Windows tests
+        shell: pwsh
+        run: ./deploy/enhanced/windows.ps1 build
+      - name: Create and exercise the Windows installer
+        shell: pwsh
+        run: ./deploy/enhanced/windows.ps1 package
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: windows-x64-package
+          path: release-out/*
+          if-no-files-found: error
