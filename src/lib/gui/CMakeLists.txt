@@ -1,0 +1,210 @@
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Deskflow Developers
+# SPDX-FileCopyrightText: (C) 2024 Symless Ltd
+# SPDX-License-Identifier: MIT
+
+set(target gui)
+
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
+if(APPLE)
+  set (platform_sources
+    OSXHelpers.h
+    OSXHelpers.mm
+  )
+endif()
+
+add_library(${target} STATIC
+  core/ConfiguredTlsProbe.cpp
+  core/ConfiguredTlsProbe.h
+  dialogs/WindowsStartupDialog.cpp
+  dialogs/WindowsStartupDialog.h
+  core/WindowsStartupProvider.cpp
+  core/WindowsStartupProvider.h
+  widgets/DesktopWorkspaceView.cpp
+  widgets/DesktopWorkspaceView.h
+  widgets/ConnectionHome.cpp
+  widgets/ConnectionHome.h
+  core/AutomaticRecovery.cpp
+  core/AutomaticRecovery.h
+  core/StartupRecovery.cpp
+  core/StartupRecovery.h
+  core/StartupRecoveryReader.cpp
+  core/MacStartupExecutor.cpp
+  core/MacStartupExecutor.h
+  core/StartupHandoff.cpp
+  core/StartupHandoff.h
+  dialogs/StartupRecoveryDialog.cpp
+  dialogs/StartupRecoveryDialog.h
+  core/PowerMonitor.cpp
+  core/PowerMonitor.h
+  dialogs/AutomaticRecoveryDialog.cpp
+  dialogs/AutomaticRecoveryDialog.h
+  dialogs/CandidatePermissionDialog.cpp
+  dialogs/CandidatePermissionDialog.h
+  core/RecoveryProbe.cpp
+  core/RecoveryProbe.h
+  core/ScopedAddressResolver.cpp
+  core/DeviceRecovery.cpp
+  core/DeviceRecovery.h
+  ${platform_sources}
+  ComputerSetupModel.cpp
+  ComputerSetupModel.h
+  Diagnostic.cpp
+  Diagnostic.h
+  FileTail.cpp
+  FileTail.h
+  Logger.cpp
+  Logger.h
+  MainWindow.cpp
+  MainWindowWorkspace.cpp
+  MainWindow.h
+  MainWindow.ui
+  IdentityBindings.cpp
+  IdentityBindings.h
+  RecentServerHistory.cpp
+  RecentServerHistory.h
+  Messages.cpp
+  Messages.h
+  StyleUtils.h
+  TlsUtility.cpp
+  TlsUtility.h
+  VersionChecker.cpp
+  VersionChecker.h
+  config/ComputerConfig.h
+  config/Computer.cpp
+  config/Computer.h
+  config/ComputerList.cpp
+  config/ComputerList.h
+  config/ServerConfig.cpp
+  config/ServerConfig.h
+  config/MonitorLayoutDraft.cpp
+  config/MonitorLayoutDraft.h
+  config/MonitorTopology.cpp
+  config/MonitorTopology.h
+  config/DesktopLayout.cpp
+  config/DesktopLayout.h
+  ../experience/LayoutModel.cpp
+  ../experience/LayoutModel.h
+  core/CoreProcess.cpp
+  core/CoreProcess.h
+  core/NearbyDiscovery.cpp
+  core/NearbyDiscovery.h
+  core/DiscoveryCatalog.cpp
+  core/DiscoveryCatalog.h
+  core/DiscoveryTransport.h
+  core/DiscoveryScope.cpp
+  core/DiscoveryScope.h
+  core/DiscoveryTransportMac.cpp
+  core/DiscoveryTransportWin.cpp
+  core/NearbyPublisher.cpp
+  core/NearbyPublisher.h
+  core/NetworkMonitor.cpp
+  core/NetworkMonitor.h
+  dialogs/AboutDialog.cpp
+  dialogs/AboutDialog.h
+  dialogs/AboutDialog.ui
+  dialogs/ActionDialog.cpp
+  dialogs/ActionDialog.h
+  dialogs/ActionDialog.ui
+  dialogs/ClientConfigDialog.h
+  dialogs/ClientConfigDialog.cpp
+  dialogs/ClientConfigDialog.ui
+  dialogs/ComputerSettingsDialog.cpp
+  dialogs/ComputerSettingsDialog.h
+  dialogs/ComputerSettingsDialog.ui
+  dialogs/PairingReviewDialog.cpp
+  dialogs/PairingReviewDialog.h
+  dialogs/TrustedDevicesDialog.cpp
+  dialogs/TrustedDevicesDialog.h
+  dialogs/DiagnosticExportDialog.cpp
+  dialogs/DiagnosticExportDialog.h
+  dialogs/DisplayTopologyDialog.cpp
+  dialogs/DisplayTopologyDialog.h
+  dialogs/FingerprintDialog.cpp
+  dialogs/FingerprintDialog.h
+  dialogs/HelpDialog.cpp
+  dialogs/HelpDialog.h
+  dialogs/HotkeyDialog.cpp
+  dialogs/HotkeyDialog.h
+  dialogs/HotkeyDialog.ui
+  dialogs/ServerConfigDialog.cpp
+  dialogs/ServerConfigDialog.h
+  dialogs/ServerConfigDialog.ui
+  dialogs/DesktopLayoutEditor.cpp
+  dialogs/DesktopLayoutEditor.h
+  dialogs/NearbyDevicesDialog.cpp
+  dialogs/NearbyDevicesDialog.h
+  dialogs/SettingsDialog.cpp
+  dialogs/SettingsDialog.h
+  dialogs/SettingsDialog.ui
+  ipc/IpcClient.cpp
+  ipc/IpcClient.h
+  ipc/DaemonIpcClient.cpp
+  ipc/DaemonIpcClient.h
+  ipc/CoreIpcClient.cpp
+  ipc/CoreIpcClient.h
+  validators/AliasValidator.cpp
+  validators/AliasValidator.h
+  validators/ComputerDuplicationsValidator.cpp
+  validators/ComputerDuplicationsValidator.h
+  validators/ComputerLineNameValidator.cpp
+  validators/ComputerLineNameValidator.h
+  validators/ComputerNameValidator.cpp
+  validators/ComputerNameValidator.h
+  validators/EmptyStringValidator.cpp
+  validators/EmptyStringValidator.h
+  validators/IStringValidator.cpp
+  validators/IStringValidator.h
+  validators/LineEditValidator.cpp
+  validators/LineEditValidator.h
+  validators/SpacesValidator.cpp
+  validators/SpacesValidator.h
+  validators/ValidationError.cpp
+  validators/ValidationError.h
+  validators/IpAddressValidator.cpp
+  validators/IpAddressValidator.h
+  widgets/ComputerSetupView.cpp
+  widgets/ComputerSetupView.h
+  widgets/FingerprintPreview.cpp
+  widgets/FingerprintPreview.h
+  widgets/KeySequenceWidget.cpp
+  widgets/KeySequenceWidget.h
+  widgets/LogDock.cpp
+  widgets/LogDock.h
+  widgets/LogWidget.h
+  widgets/LogWidget.cpp
+  widgets/NewComputerWidget.cpp
+  widgets/NewComputerWidget.h
+  widgets/RemoveComputerWidget.cpp
+  widgets/RemoveComputerWidget.h
+  widgets/SearchWidget.h
+  widgets/SearchWidget.cpp
+  widgets/StatusBar.cpp
+  widgets/StatusBar.h
+  widgets/RecentServersButton.cpp
+  widgets/RecentServersButton.h
+  widgets/ConnectionDiagnostics.cpp
+  widgets/ConnectionDiagnostics.h
+  widgets/SettingsDialogButtonBox.cpp
+  widgets/SettingsDialogButtonBox.h
+)
+
+target_link_libraries(${target}
+  PUBLIC
+    common
+    platform
+    net
+    Qt6::Widgets
+)
+
+if(WIN32)
+  target_link_libraries(${target} PRIVATE dnsapi iphlpapi taskschd ole32 oleaut32 advapi32)
+  target_compile_definitions(${target} PRIVATE
+    UNICODE _UNICODE
+    _WIN32_WINNT=0x0601
+    NTDDI_VERSION=0x06010000)
+endif()
+
+if(APPLE)
+  target_link_libraries(${target} PRIVATE "-framework SystemConfiguration" "-framework CoreFoundation")
+endif()
