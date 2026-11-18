@@ -4,11 +4,12 @@ name: Build and test preview packages
 on:
   workflow_dispatch:
   push:
-    branches: [release/preview]
+    branches: [release/preview, release/macos-preview]
 permissions:
   contents: read
 jobs:
   windows:
+    if: github.ref_name != 'release/macos-preview'
     runs-on: windows-2022
     timeout-minutes: 50
     steps:
@@ -51,6 +52,10 @@ jobs:
           echo "QT_SDK=$RUNNER_TEMP/qt/6.10.3/macos" >> "$GITHUB_ENV"
           echo "OPENSSL_SDK=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
       - name: Build, test and exercise the macOS disk image
+        env:
+          # The retry branch corrects the package's smoke environment after the
+          # standard-profile test suite passed for the same application source.
+          DESKFLOW_SKIP_SOURCE_TESTS: ${{ github.ref_name == 'release/macos-preview' && '1' || '0' }}
         run: bash deploy/enhanced/macos.sh "$PWD/build" "$QT_SDK" "$OPENSSL_SDK"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:

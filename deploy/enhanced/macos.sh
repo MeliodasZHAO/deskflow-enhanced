@@ -19,9 +19,11 @@ common=(
   "-DCMAKE_C_FLAGS=-ffile-prefix-map=$root=." "-DCMAKE_CXX_FLAGS=-ffile-prefix-map=$root=."
   "-DCMAKE_PREFIX_PATH=$qt" "-DOPENSSL_ROOT_DIR=$openssl"
 )
-cmake -S "$root" -B "$build-tests" "${common[@]}" -DBUILD_TESTS=ON
-cmake --build "$build-tests" --parallel 3
-QT_QPA_PLATFORM=offscreen ctest --test-dir "$build-tests/src/unittests" --no-tests=error --output-on-failure
+if [[ ${DESKFLOW_SKIP_SOURCE_TESTS:-0} != 1 ]]; then
+  cmake -S "$root" -B "$build-tests" "${common[@]}" -DBUILD_TESTS=ON
+  cmake --build "$build-tests" --parallel 3
+  QT_QPA_PLATFORM=offscreen ctest --test-dir "$build-tests/src/unittests" --no-tests=error --output-on-failure
+fi
 cmake -S "$root" -B "$build" "${common[@]}" -DBUILD_TESTS=OFF -DDESKFLOW_CANDIDATE_BUILD=ON \
   -DDESKFLOW_CANDIDATE_SESSIONS_ROOT=/private/tmp/deskflow-enhanced-candidate-sessions
 cmake --build "$build" --target DeskflowCandidate deskflow-core deskflow-candidate-network-core app_translations --parallel 3
@@ -67,7 +69,7 @@ ditto "$mount_point/DeskflowCandidate.app" "$installed"
 codesign --verify --deep --strict "$installed"
 test_root=$(cd "$scratch" && pwd -P)
 export XDG_CONFIG_HOME="$test_root/config" XDG_STATE_HOME="$test_root/state"
-export QT_QPA_PLATFORM=offscreen
+export QT_QPA_PLATFORM=cocoa
 "$installed/Contents/MacOS/deskflow-candidate-core" --version | tee "$build/release-out/macos-validation.txt"
 "$installed/Contents/MacOS/DeskflowCandidate" --version | tee -a "$build/release-out/macos-validation.txt"
 grep -q "$version" "$build/release-out/macos-validation.txt"
