@@ -9,13 +9,15 @@ $openssl = $env:OPENSSL_SDK
 if (!$qt -or !$openssl) { throw 'Set QT_SDK and OPENSSL_SDK to the x64 release SDKs.' }
 $env:Path = "$qt/bin;$openssl/bin;$env:Path"
 if ($Phase -eq 'build') {
-  cmake -S . -B build -G 'Visual Studio 17 2022' -A x64 `
-    -DDESKFLOW_CANDIDATE_BUILD=ON -DBUILD_INSTALLER=OFF -DBUILD_TESTS=ON `
-    -DSKIP_BUILD_TESTS=ON -DUPDATE_TRANSLATIONS=OFF "-DDESKFLOW_PACKAGE_VERSION=$version" `
-    "-DCMAKE_PREFIX_PATH=$qt" "-DOPENSSL_ROOT_DIR=$openssl"
-  cmake --build build --config Release --parallel 4
+  $common = @('-G', 'Visual Studio 17 2022', '-A', 'x64', '-DBUILD_INSTALLER=OFF',
+    '-DSKIP_BUILD_TESTS=ON', '-DUPDATE_TRANSLATIONS=OFF', "-DDESKFLOW_PACKAGE_VERSION=$version",
+    "-DCMAKE_PREFIX_PATH=$qt", "-DOPENSSL_ROOT_DIR=$openssl")
+  cmake -S . -B build-tests @common -DBUILD_TESTS=ON
+  cmake --build build-tests --config Release --parallel 4
   $env:QT_QPA_PLATFORM = 'offscreen'
-  ctest --test-dir build/src/unittests -C Release --parallel 2 --no-tests=error --output-on-failure
+  ctest --test-dir build-tests/src/unittests -C Release --parallel 2 --no-tests=error --output-on-failure
+  cmake -S . -B build @common -DDESKFLOW_CANDIDATE_BUILD=ON -DBUILD_TESTS=OFF
+  cmake --build build --config Release --target DeskflowCandidate deskflow-core deskflow-candidate-network-core app_translations --parallel 4
   exit
 }
 
@@ -64,6 +66,8 @@ $target = Join-Path $env:RUNNER_TEMP 'enhanced-install-smoke'
 if (Test-Path $target) { throw 'Install smoke path is not empty.' }
 $install = Start-Process $installer -ArgumentList "/S /D=$target" -PassThru -Wait
 if ($install.ExitCode -ne 0) { throw "Installer exit $($install.ExitCode)" }
+$shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Deskflow Enhanced/Deskflow Enhanced.lnk'
+if (!(Test-Path $shortcut)) { throw 'Start menu shortcut was not installed.' }
 $env:Path = "$env:SystemRoot/System32;$env:SystemRoot"
 Push-Location $target
 try {
@@ -86,5 +90,5 @@ try {
   }
 } finally { Pop-Location }
 $uninstall = Start-Process "$target/Uninstall.exe" -ArgumentList "/S _?=$target" -Wait -PassThru
-if ($uninstall.ExitCode -ne 0 -or (Test-Path "$target/DeskflowCandidate.exe")) { throw 'Uninstall smoke failed.' }
+if ($uninstall.ExitCode -ne 0 -or (Test-Path "$target/DeskflowCandidate.exe") -or (Test-Path $shortcut)) { throw 'Uninstall smoke failed.' }
 'Windows installer, installed core, native GUI and uninstaller passed.' | Set-Content "$out/windows-validation.txt"

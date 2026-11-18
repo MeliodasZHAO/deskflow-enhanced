@@ -12,15 +12,19 @@ qt=$2
 openssl=$3
 version=1.27.0.16
 root=$(cd "$(dirname "$0")/../.." && pwd -P)
-cmake -S "$root" -B "$build" -DCMAKE_BUILD_TYPE=Release \
-  -DDESKFLOW_CANDIDATE_BUILD=ON -DBUILD_INSTALLER=OFF -DBUILD_TESTS=ON \
-  -DSKIP_BUILD_TESTS=ON -DUPDATE_TRANSLATIONS=OFF "-DDESKFLOW_PACKAGE_VERSION=$version" \
-  -DDESKFLOW_CANDIDATE_SESSIONS_ROOT=/private/tmp/deskflow-enhanced-candidate-sessions \
-  -DCMAKE_OSX_ARCHITECTURES=arm64 -DOPENSSL_USE_STATIC_LIBS=TRUE \
-  "-DCMAKE_C_FLAGS=-ffile-prefix-map=$root=." "-DCMAKE_CXX_FLAGS=-ffile-prefix-map=$root=." \
+common=(
+  -DCMAKE_BUILD_TYPE=Release -DBUILD_INSTALLER=OFF -DSKIP_BUILD_TESTS=ON
+  -DUPDATE_TRANSLATIONS=OFF "-DDESKFLOW_PACKAGE_VERSION=$version"
+  -DCMAKE_OSX_ARCHITECTURES=arm64 -DOPENSSL_USE_STATIC_LIBS=TRUE
+  "-DCMAKE_C_FLAGS=-ffile-prefix-map=$root=." "-DCMAKE_CXX_FLAGS=-ffile-prefix-map=$root=."
   "-DCMAKE_PREFIX_PATH=$qt" "-DOPENSSL_ROOT_DIR=$openssl"
-cmake --build "$build" --parallel 3
-QT_QPA_PLATFORM=offscreen ctest --test-dir "$build/src/unittests" --no-tests=error --output-on-failure
+)
+cmake -S "$root" -B "$build-tests" "${common[@]}" -DBUILD_TESTS=ON
+cmake --build "$build-tests" --parallel 3
+QT_QPA_PLATFORM=offscreen ctest --test-dir "$build-tests/src/unittests" --no-tests=error --output-on-failure
+cmake -S "$root" -B "$build" "${common[@]}" -DBUILD_TESTS=OFF -DDESKFLOW_CANDIDATE_BUILD=ON \
+  -DDESKFLOW_CANDIDATE_SESSIONS_ROOT=/private/tmp/deskflow-enhanced-candidate-sessions
+cmake --build "$build" --target DeskflowCandidate deskflow-core deskflow-candidate-network-core app_translations --parallel 3
 
 scratch=$(mktemp -d)
 mount_point="$scratch/mounted"
