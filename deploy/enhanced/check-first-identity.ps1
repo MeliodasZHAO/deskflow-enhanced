@@ -97,8 +97,8 @@ foreach ($role in 'sharing', 'receiving') {
       Press-Button '^(Back to Overview|返回概览)$'
     }
     $null = Wait-Element $next ([Windows.Automation.ControlType]::Button)
-    $home = Wait-Element '^DeskflowCandidate( - .*)?$' ([Windows.Automation.ControlType]::Window)
-    Save-Capture $home "$role-overview.png"
+    $homeWindow = Wait-Element '^DeskflowCandidate( - .*)?$' ([Windows.Automation.ControlType]::Window)
+    Save-Capture $homeWindow "$role-overview.png"
     if (!(Test-Path "$profile/tls/deskflow-candidate.pem")) { throw 'The local identity was not written.' }
     if (Get-Process -Name 'deskflow-candidate-core' -ErrorAction SilentlyContinue) {
       throw 'Returning to Overview unexpectedly started the input core.'

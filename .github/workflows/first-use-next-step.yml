@@ -7,6 +7,9 @@ on:
     branches: [test/first-use-next-step]
 permissions:
   contents: read
+concurrency:
+  group: first-use-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   windows:
     runs-on: windows-2022
@@ -31,6 +34,11 @@ jobs:
       - name: Create and exercise the Windows installer
         shell: pwsh
         run: ./deploy/enhanced/windows.ps1 package
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: first-use-windows-package
+          path: release-out/*
+          if-no-files-found: error
       - name: Check both first-use roles in the replacement package
         shell: powershell
         run: '& ([scriptblock]::Create((Get-Content ./deploy/enhanced/check-first-identity.ps1 -Raw -Encoding UTF8))) -Installer (Get-ChildItem release-out/*Setup.exe).FullName'
