@@ -20,16 +20,11 @@ if (Test-Path $profile) { throw 'Expected a clean Windows profile.' }
 function Invoke-CoreToExit($mode) {
   $stdout = Join-Path $temp "$mode.out.log"
   $stderr = Join-Path $temp "$mode.err.log"
-  $core = Start-Process $exe -ArgumentList $mode -WorkingDirectory $installDir -PassThru `
+  $core = Start-Process $exe -ArgumentList $mode -WorkingDirectory $installDir -Wait -PassThru `
     -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-  try {
-    if (!$core.WaitForExit(10000)) { throw "Core did not exit for $mode" }
-    Write-Host "$mode exit code $($core.ExitCode)"
-    Get-Content $stdout, $stderr | Write-Host
-    return $core.ExitCode
-  } finally {
-    if (!$core.HasExited) { Stop-Process -Id $core.Id }
-  }
+  Write-Host "$mode exit code $($core.ExitCode)"
+  Get-Content $stdout, $stderr | Write-Host
+  return $core.ExitCode
 }
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
