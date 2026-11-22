@@ -155,6 +155,11 @@ try {
   Invoke-Button '^(&?OK|确定|好)$' 30
   if (!(Test-Path $cert)) { throw 'The GUI did not create a local identity.' }
   Invoke-Button '^(&?Close|关闭|完成|取消|Cancel)$'
+  # The published version loads the new local fingerprint when it opens.
+  if ($gui.HasExited) { throw 'The identity setup closed unexpectedly.' }
+  Stop-Process -Id $gui.Id
+  if (!$gui.WaitForExit(5000)) { throw 'Could not close the disposable preview GUI.' }
+  $gui = Start-Process "$installDir/DeskflowCandidate.exe" -WorkingDirectory $installDir -PassThru
   Invoke-Button '^(Start sharing|开始共享)$'
   $until = [DateTime]::UtcNow.AddSeconds(25)
   do {
