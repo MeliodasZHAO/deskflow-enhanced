@@ -3,7 +3,9 @@
 
 # Deskflow Enhanced
 
-**用一套键鼠，在 Mac 和 Windows 之间切换。** 这个独立维护的 [Deskflow](https://github.com/deskflow/deskflow) 衍生项目改进了连接流程、屏幕排列和异常恢复。当前提供源码和构建说明。
+**用一套键鼠，在 Mac 和 Windows 之间切换。** 这个独立维护的 [Deskflow](https://github.com/deskflow/deskflow) 衍生项目改进了连接流程、屏幕排列和异常恢复。提供安装预览、源码和构建说明。
+
+[下载安装预览](https://github.com/MeliodasZHAO/deskflow-enhanced/releases) · [构建说明](#从源码构建)
 
 ![连接概览。两台示例电脑分别接收控制和提供键鼠](docs/screenshots/overview.png)
 
