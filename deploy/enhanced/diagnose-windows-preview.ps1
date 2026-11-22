@@ -98,8 +98,13 @@ try {
   Invoke-Button '^(Change control to the other computer|Let the other computer control|改为由另一台电脑控制)$'
   Invoke-Button '^(Use the other computer|使用另一台的键盘和鼠标)'
   Invoke-Button '^(Enter address|输入地址)$'
-  $address = Get-WindowElements | Where-Object { $_.Current.AutomationId -like '*.homeAddress' } |
-    Select-Object -First 1
+  $until = [DateTime]::UtcNow.AddSeconds(10)
+  do {
+    Start-Sleep -Milliseconds 300
+    $address = Get-WindowElements | Where-Object {
+      $_.Current.AutomationId -match '(^|\.)homeAddress$' -and !$_.Current.IsOffscreen
+    } | Select-Object -First 1
+  } while (!$address -and [DateTime]::UtcNow -lt $until)
   if (!$address) { throw 'The manual address field is missing.' }
   $address.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('127.0.0.1')
   Invoke-Button '^(Use this address|使用此地址)$'
