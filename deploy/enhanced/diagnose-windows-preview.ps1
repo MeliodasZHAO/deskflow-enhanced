@@ -86,12 +86,34 @@ try {
   } while ([DateTime]::UtcNow -lt $until)
   if (!$listener) { throw 'The installed input core did not listen on its default port.' }
   Write-Host 'Fresh identity creation and sharing passed, installed core is listening on TCP 34800.'
-  Invoke-Button '^(Pause|暂停|暂停共享)$'
+  Invoke-Button '^(&?OK|确定|好)$'
+  Invoke-Button '^(Stop sharing|停止共享)$'
   $remaining = @(Get-Process -Name 'deskflow-candidate-core' -ErrorAction SilentlyContinue)
   foreach ($process in $remaining) {
     if (!$process.WaitForExit(10000)) { throw 'Pause did not stop the input core.' }
   }
-  Write-Host 'Pause stopped the installed input core.'
+  Write-Host 'Stop sharing stopped the installed input core.'
+  if ((Invoke-CoreToExit 'server') -ne 3) { throw 'The paused server core ran directly.' }
+
+  Invoke-Button '^(Change control to the other computer|Let the other computer control|改为由另一台电脑控制)$'
+  Invoke-Button '^(Use the other computer|使用另一台的键盘和鼠标)'
+  Invoke-Button '^(Enter address|输入地址)$'
+  $address = Get-WindowElements | Where-Object { $_.Current.AutomationId -like '*.homeAddress' } |
+    Select-Object -First 1
+  if (!$address) { throw 'The manual address field is missing.' }
+  $address.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('127.0.0.1')
+  Invoke-Button '^(Use this address|使用此地址)$'
+  $loopback = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 34800)
+  $loopback.Start()
+  try {
+    $connect = $loopback.AcceptTcpClientAsync()
+    Invoke-Button '^(Pair and connect|配对并连接)$'
+    if (!$connect.Wait(10000)) { throw 'The installed receiving core did not make its TCP connection.' }
+    $connect.Result.Dispose()
+    Write-Host 'The installed receiving core opened a local TCP connection. TLS pairing was not exercised.'
+  } finally {
+    $loopback.Stop()
+  }
 } finally {
   if ($gui -and !$gui.HasExited) {
     try {
