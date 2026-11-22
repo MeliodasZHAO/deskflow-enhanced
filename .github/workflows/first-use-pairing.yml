@@ -1,0 +1,97 @@
+# SPDX-FileCopyrightText: (C) 2026 Deskflow Enhanced contributors
+# SPDX-License-Identifier: MIT
+name: Verify first-use identity handoff and Windows receiving input
+on:
+  workflow_dispatch:
+  push:
+    branches: [test/first-use-pairing]
+permissions:
+  contents: read
+concurrency:
+  group: first-use-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install Qt and OpenSSL SDKs
+        shell: pwsh
+        run: |
+          python -m pip install aqtinstall==3.3.0
+          python -m aqt install-qt windows desktop 6.10.3 win64_msvc2022_64 -O "$env:RUNNER_TEMP/qt"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $openssl = Join-Path $env:ProgramFiles 'OpenSSL'
+          if (!(Test-Path "$openssl/include/openssl/ssl.h")) { throw 'The hosted runner is missing the full OpenSSL SDK.' }
+          "QT_SDK=$env:RUNNER_TEMP/qt/6.10.3/msvc2022_64" >> $env:GITHUB_ENV
+          "OPENSSL_SDK=$openssl" >> $env:GITHUB_ENV
+      - name: Build the Windows candidate and translations
+        shell: pwsh
+        run: |
+          $qt = $env:QT_SDK
+          $ssl = $env:OPENSSL_SDK
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_INSTALLER=OFF -DSKIP_BUILD_TESTS=ON -DUPDATE_TRANSLATIONS=OFF -DDESKFLOW_PACKAGE_VERSION=1.27.0.17 "-DCMAKE_PREFIX_PATH=$qt" "-DOPENSSL_ROOT_DIR=$ssl" -DDESKFLOW_CANDIDATE_BUILD=ON -DBUILD_TESTS=OFF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build --config Release --target DeskflowCandidate deskflow-core deskflow-candidate-network-core app_translations --parallel 4
+      - name: Create and exercise the Windows installer
+        shell: pwsh
+        run: ./deploy/enhanced/windows.ps1 package
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: first-use-windows-package
+          path: release-out/*
+          if-no-files-found: error
+      - name: Check both first-use roles in the replacement package
+        continue-on-error: true
+        shell: powershell
+        run: '& ([scriptblock]::Create((Get-Content ./deploy/enhanced/check-first-identity.ps1 -Raw -Encoding UTF8))) -Installer (Get-ChildItem release-out/*Setup.exe).FullName'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: first-use-windows-current
+          path: first-use-evidence/*.png
+          if-no-files-found: warn
+  input:
+    runs-on: windows-2022
+    timeout-minutes: 12
+    needs: windows
+    if: always() && needs.windows.result == 'success'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: first-use-windows-package
+          path: tested-package
+      - name: Pair and verify received input on the disposable desktop
+        shell: powershell
+        run: '& ([scriptblock]::Create((Get-Content ./deploy/enhanced/test-paired-win-input.ps1 -Raw -Encoding UTF8))) -Installer (Get-ChildItem tested-package/*Setup.exe).FullName'
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install Qt and locate OpenSSL
+        run: |
+          python3 -m venv "$RUNNER_TEMP/qt-tools"
+          "$RUNNER_TEMP/qt-tools/bin/pip" install aqtinstall==3.3.0
+          "$RUNNER_TEMP/qt-tools/bin/aqt" install-qt mac desktop 6.10.3 clang_64 -O "$RUNNER_TEMP/qt"
+          echo "QT_SDK=$RUNNER_TEMP/qt/6.10.3/macos" >> "$GITHUB_ENV"
+          echo "OPENSSL_SDK=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+      - name: Build, test and exercise the macOS disk image
+        env:
+          # The retry branch corrects the package's smoke environment after the
+          # standard-profile test suite passed for the same application source.
+          DESKFLOW_SKIP_SOURCE_TESTS: ${{ github.ref_name == 'release/macos-preview' && '1' || '0' }}
+        run: bash deploy/enhanced/macos.sh "$PWD/build" "$QT_SDK" "$OPENSSL_SDK"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: macos-arm64-package
+          path: build/release-out/*
+          if-no-files-found: error
