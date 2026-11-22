@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Deskflow Enhanced contributors
 # SPDX-License-Identifier: MIT
 $ErrorActionPreference = 'Stop'
+if ($env:GITHUB_ACTIONS -ne 'true' -or !$env:RUNNER_TEMP) { throw 'Use only in the disposable Windows runner.' }
 $testStart = Get-Date
 $temp = Join-Path $env:RUNNER_TEMP 'preview-first-run'
 $installDir = Join-Path $temp 'Deskflow Enhanced'
@@ -59,6 +60,84 @@ function Invoke-Button($pattern, $timeout = 15) {
   throw "Could not invoke button: $pattern"
 }
 
+function Wait-ForFile($file, $timeout = 15) {
+  $end = [DateTime]::UtcNow.AddSeconds($timeout)
+  while (!(Test-Path $file)) {
+    if ([DateTime]::UtcNow -ge $end) { throw "Timed out waiting for $file" }
+    Start-Sleep -Milliseconds 250
+  }
+}
+
+function Confirm-ExpectedPeer($fingerprint) {
+  $end = [DateTime]::UtcNow.AddSeconds(15)
+  do {
+    Start-Sleep -Milliseconds 300
+    $tree = @(Get-WindowElements)
+    $hashes = $tree | Where-Object { $_.Current.AutomationId -match '\.pairingFingerprints$' } | Select-Object -First 1
+    $comparison = $tree | Where-Object { $_.Current.AutomationId -match '\.pairingCompared$' } | Select-Object -First 1
+  } while ((!$hashes -or !$comparison) -and [DateTime]::UtcNow -lt $end)
+  if (!$hashes -or !$comparison) { throw 'The first-pairing review was not displayed.' }
+  $textPattern = $null
+  if ($hashes.TryGetCurrentPattern([Windows.Automation.TextPattern]::Pattern, [ref]$textPattern)) {
+    $displayed = $textPattern.DocumentRange.GetText(-1)
+  } else {
+    $displayed = $hashes.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.Value
+  }
+  $rows = [regex]::Matches($displayed, '(?im)^(?:[a-f0-9]{2}:){7}[a-f0-9]{2}\r?$')
+  if ($rows.Count -ne 8 -or ((($rows | Select-Object -Last 4).Value -join '') -replace '[:\s]','') -ne $fingerprint) {
+    throw 'The installed client did not display the expected test peer identity.'
+  }
+  $comparison.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
+  Invoke-Button '^(Confirm comparison|确认核对结果)$'
+  Write-Host 'Confirmed the exact first-pairing certificate fingerprint in the Windows GUI.'
+}
+
+function Test-NativeReceivedInput {
+  Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+  $window = [Windows.Forms.Form]::new()
+  $window.Text = 'Isolated Deskflow input target'
+  $window.TopMost = $true
+  $window.StartPosition = 'CenterScreen'
+  $window.ClientSize = [Drawing.Size]::new(430, 170)
+  $instruction = [Windows.Forms.Button]::new()
+  $instruction.Text = 'Input test'
+  $instruction.Location = [Drawing.Point]::new(24, 19)
+  $instruction.TabIndex = 0
+  $edit = [Windows.Forms.TextBox]::new()
+  $edit.Location = [Drawing.Point]::new(24, 78)
+  $edit.Size = [Drawing.Size]::new(320, 32)
+  $edit.TabIndex = 1
+  $window.Controls.AddRange(@($instruction, $edit))
+  $check = @{ Motion = $false; Click = $false }
+  $edit.add_MouseMove({ $check.Motion = $true })
+  $edit.add_MouseDown({ if ($_.Button -eq 'Left') { $check.Click = $true } })
+  $window.add_Shown({
+    $window.Activate()
+    $window.ActiveControl = $instruction
+    $point = $edit.PointToScreen([Drawing.Point]::new(62, 10))
+    $resultFile = Join-Path $temp 'target.json'
+    "[$($point.X),$($point.Y)]" | Set-Content "${resultFile}.tmp" -Encoding ASCII
+    Move-Item "${resultFile}.tmp" $resultFile
+  })
+  $timer = [Windows.Forms.Timer]::new()
+  $timer.Interval = 150
+  $end = [DateTime]::UtcNow.AddSeconds(15)
+  $timer.add_Tick({
+    if (($check.Motion -and $check.Click -and $edit.Text -eq 'deskflow') -or [DateTime]::UtcNow -gt $end) {
+      $window.Close()
+    }
+  })
+  $timer.Start()
+  try {
+    $null = $window.ShowDialog()
+    Write-Host "Native input observed: motion=$($check.Motion), left click=$($check.Click), typed text=$($edit.Text)"
+    if (!$check.Motion -or !$check.Click -or $edit.Text -ne 'deskflow') { throw 'Native input did not reach the test textbox.' }
+  } finally {
+    $timer.Dispose()
+    $window.Dispose()
+  }
+}
+
 try {
   if ((Invoke-CoreToExit '--version') -ne 0) { throw 'Version command failed.' }
   if ((Invoke-CoreToExit 'server') -ne 3 -or (Invoke-CoreToExit 'client') -ne 3) {
@@ -108,16 +187,25 @@ try {
   if (!$address) { throw 'The manual address field is missing.' }
   $address.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('127.0.0.1')
   Invoke-Button '^(Use this address|使用此地址)$'
-  $loopback = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 34800)
-  $loopback.Start()
+  $openssl = Join-Path $env:ProgramFiles 'OpenSSL/bin/openssl.exe'
+  $certJob = Start-Process $openssl -ArgumentList 'req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=DeskflowTestPeer -keyout peer.key -out peer.pem' `
+    -WorkingDirectory $temp -Wait -PassThru -RedirectStandardError "$temp/openssl.log"
+  if ($certJob.ExitCode) { throw 'Could not create the temporary test peer identity.' }
+  $fingerprint = ((& $openssl x509 -in "$temp/peer.pem" -noout -fingerprint -sha256) -split '=')[1] -replace ':',''
+  $peerScript = (Resolve-Path 'deploy/enhanced/windows-input-peer.py').Path
+  $peer = Start-Process python -ArgumentList @('"' + $peerScript + '"', '"' + $temp + '"', '"' + "$profile/tls/deskflow-candidate.pem" + '"') `
+    -PassThru -RedirectStandardOutput "$temp/peer.log" -RedirectStandardError "$temp/peer-error.log"
   try {
-    $connect = $loopback.AcceptTcpClientAsync()
+    Wait-ForFile "$temp/listening"
     Invoke-Button '^(Pair and connect|配对并连接)$'
-    if (!$connect.Wait(10000)) { throw 'The installed receiving core did not make its TCP connection.' }
-    $connect.Result.Dispose()
-    Write-Host 'The installed receiving core opened a local TCP connection. TLS pairing was not exercised.'
+    Confirm-ExpectedPeer $fingerprint
+    Wait-ForFile "$temp/connected"
+    Write-Host 'A new mutual TLS connection completed the Deskflow protocol handshake.'
+    Invoke-Button '^(&?OK|确定|好)$' 5
+    Test-NativeReceivedInput
   } finally {
-    $loopback.Stop()
+    if (!$peer.HasExited -and !$peer.WaitForExit(3000)) { Stop-Process -Id $peer.Id }
+    Get-Content "$temp/peer.log","$temp/peer-error.log" | Write-Host
   }
 } finally {
   if ($gui -and !$gui.HasExited) {

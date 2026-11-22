@@ -1,7 +1,7 @@
-name: Diagnose installed Windows preview
+name: Verify Windows preview TLS pairing and received input
 on:
   push:
-    branches: [test/windows-preview-first-run]
+    branches: [test/windows-preview-input]
 permissions:
   contents: read
 jobs:
