@@ -77,6 +77,7 @@ function Confirm-ExpectedPeer($fingerprint) {
     $comparison = $tree | Where-Object { $_.Current.AutomationId -match '\.pairingCompared$' } | Select-Object -First 1
   } while ((!$hashes -or !$comparison) -and [DateTime]::UtcNow -lt $end)
   if (!$hashes -or !$comparison) { throw 'The first-pairing review was not displayed.' }
+  Write-Host "Fingerprint comparison enabled=$($comparison.Current.IsEnabled)"
   $textPattern = $null
   if ($hashes.TryGetCurrentPattern([Windows.Automation.TextPattern]::Pattern, [ref]$textPattern)) {
     $displayed = $textPattern.DocumentRange.GetText(-1)
@@ -185,7 +186,9 @@ try {
     } | Select-Object -First 1
   } while (!$address -and [DateTime]::UtcNow -lt $until)
   if (!$address) { throw 'The manual address field is missing.' }
-  $address.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('127.0.0.1')
+  $hostsFile = Join-Path $env:SystemRoot 'System32/drivers/etc/hosts'
+  Add-Content -Path $hostsFile -Value "`r`n127.0.0.1 deskflow-test-peer.local" -Encoding ASCII
+  $address.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('deskflow-test-peer.local')
   Invoke-Button '^(Use this address|使用此地址)$'
   $openssl = Join-Path $env:ProgramFiles 'OpenSSL/bin/openssl.exe'
   $certJob = Start-Process $openssl -ArgumentList 'req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=DeskflowTestPeer -keyout peer.key -out peer.pem' `
@@ -193,7 +196,7 @@ try {
   if ($certJob.ExitCode) { throw 'Could not create the temporary test peer identity.' }
   $fingerprint = ((& $openssl x509 -in "$temp/peer.pem" -noout -fingerprint -sha256) -split '=')[1] -replace ':',''
   $peerScript = (Resolve-Path 'deploy/enhanced/windows-input-peer.py').Path
-  $peer = Start-Process python -ArgumentList @('"' + $peerScript + '"', '"' + $temp + '"', '"' + "$profile/tls/deskflow-candidate.pem" + '"') `
+  $peer = Start-Process python -ArgumentList ('"{0}" "{1}" "{2}"' -f $peerScript, $temp, "$profile/tls/deskflow-candidate.pem") `
     -PassThru -RedirectStandardOutput "$temp/peer.log" -RedirectStandardError "$temp/peer-error.log"
   try {
     Wait-ForFile "$temp/listening"
