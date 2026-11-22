@@ -1,0 +1,17 @@
+name: Diagnose installed Windows preview
+on:
+  push:
+    branches: [test/windows-preview-first-run]
+permissions:
+  contents: read
+jobs:
+  first-run:
+    runs-on: windows-2022
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Run the published installer and exercise first use
+        shell: powershell
+        run: '& ([scriptblock]::Create((Get-Content ./deploy/enhanced/diagnose-windows-preview.ps1 -Raw -Encoding UTF8)))'
