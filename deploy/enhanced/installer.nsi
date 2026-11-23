@@ -6,10 +6,10 @@ OutFile "${RESULT}"
 InstallDir "$LOCALAPPDATA\Programs\Deskflow Enhanced"
 InstallDirRegKey HKCU "Software\Deskflow Enhanced" "InstallDir"
 RequestExecutionLevel user
-VIProductVersion "1.27.0.20"
+VIProductVersion "1.27.0.21"
 VIAddVersionKey "ProductName" "Deskflow Enhanced"
 VIAddVersionKey "FileDescription" "Deskflow Enhanced Windows installer"
-VIAddVersionKey "FileVersion" "1.27.0.20"
+VIAddVersionKey "FileVersion" "1.27.0.21"
 VIAddVersionKey "LegalCopyright" "Deskflow and Deskflow Enhanced contributors"
 Page directory
 Page instfiles
@@ -25,7 +25,7 @@ Section
   CreateShortcut "$SMPROGRAMS\Deskflow Enhanced\Deskflow Enhanced.lnk" "$INSTDIR\DeskflowCandidate.exe"
   WriteRegStr HKCU "Software\Deskflow Enhanced" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DeskflowEnhanced" "DisplayName" "Deskflow Enhanced"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DeskflowEnhanced" "DisplayVersion" "1.27.0.20"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DeskflowEnhanced" "DisplayVersion" "1.27.0.21"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DeskflowEnhanced" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DeskflowEnhanced" "DisplayIcon" "$INSTDIR\DeskflowCandidate.exe"
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DeskflowEnhanced" "NoModify" 1

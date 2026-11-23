@@ -10,7 +10,7 @@ fi
 build=$1
 qt=$2
 openssl=$3
-version=1.27.0.20
+version=1.27.0.21
 root=$(cd "$(dirname "$0")/../.." && pwd -P)
 common=(
   -DCMAKE_BUILD_TYPE=Release -DBUILD_INSTALLER=OFF -DSKIP_BUILD_TESTS=ON
