@@ -1685,6 +1685,14 @@ Additionally, check you are able to %1 the server config file: %2</source>
             <translation>无法添加电脑</translation>
         </message>
         <message>
+            <source>Layout saved</source>
+            <translation>排列已保存</translation>
+        </message>
+        <message>
+            <source>The new computer was saved. The running core has not confirmed the new layout. Restart sharing when it is convenient to apply the saved layout.</source>
+            <translation>新电脑已保存。运行中的核心尚未确认新排列生效。方便时可以重新开始共享，应用已保存的排列。</translation>
+        </message>
+        <message>
             <source>The configuration could not be saved. The previous computers and layout are preserved.</source>
             <translation>配置保存失败，原有电脑和排列已保留。</translation>
         </message>
@@ -2629,6 +2637,30 @@ Enabling this setting will disable the server config GUI.</source>
         <message>
             <source>TLS certificate regenerated successfully.</source>
             <translation>TLS 证书重新生成成功。</translation>
+        </message>
+        <message>
+            <source>On Overview, click “Start sharing”. Then connect from the receiving computer.</source>
+            <translation>回到概览后，点「开始共享」，再从被控电脑连接。</translation>
+        </message>
+        <message>
+            <source>On Overview, choose the computer that provides the keyboard and mouse, or click “Enter address”. Then click the connection button.</source>
+            <translation>回到概览后，选择提供键鼠的电脑，也可以点「输入地址」。选好后，点连接按钮。</translation>
+        </message>
+        <message>
+            <source>Return to Overview and choose which computer provides the keyboard and mouse.</source>
+            <translation>返回概览，选择由哪台电脑提供键盘和鼠标。</translation>
+        </message>
+        <message>
+            <source>Save or close Settings to return to Overview.</source>
+            <translation>保存或关闭设置，返回概览。</translation>
+        </message>
+        <message>
+            <source>Back to Overview</source>
+            <translation>返回概览</translation>
+        </message>
+        <message>
+            <source>Stay in Settings</source>
+            <translation>留在设置</translation>
         </message>
         <message>
             <source>Select a TLS certificate to use...</source>

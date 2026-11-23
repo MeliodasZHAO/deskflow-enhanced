@@ -7,7 +7,7 @@
 
 [下载安装预览](https://github.com/MeliodasZHAO/deskflow-enhanced/releases) · [构建说明](#从源码构建)
 
-**当前可下载版本是 `1.27.0.17` 预览版。** 在这一版上，首次创建身份后可能无法立即开始连接。创建后退出并重新打开 Deskflow，让程序重新读取身份，再尝试配对。首次设置、配对重试和加入新电脑的修复已在[候选分支](https://github.com/MeliodasZHAO/deskflow-enhanced/tree/release/preview)，新安装包正在做实机验收。
+**当前可下载版本是 `1.27.0.17` 预览版。** 在这一版上，首次创建身份后可能无法立即开始连接。创建后退出并重新打开 Deskflow，让程序重新读取身份，再尝试配对。当前源码已包含首次设置、配对重试和加入新电脑的修复。新版安装包正在做实机验收。
 
 ![连接概览。两台示例电脑分别接收控制和提供键鼠](docs/screenshots/overview.png)
 

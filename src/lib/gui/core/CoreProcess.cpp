@@ -265,6 +265,13 @@ void CoreProcess::onProcessFinished(int exitCode, QProcess::ExitStatus status)
     checkExistingProcess();
     return;
   }
+  if (m_mode == Settings::CoreMode::Client && exitCode == s_exitUnknownClient && status == QProcess::NormalExit) {
+    // The server can refuse a new computer before the GUI has connected to IPC.
+    m_recoveryBlocked = true;
+    setProcessState(Stopped);
+    Q_EMIT connectionRefused(deskflow::core::ConnectionRefusal::UnknownClient);
+    return;
+  }
   const bool normalRestart = exitCode == s_exitSuccess && status == QProcess::NormalExit;
   const bool crashRestart = status == QProcess::CrashExit && m_crashRetries < 3;
   if (normalRestart || crashRestart) {
@@ -867,6 +874,28 @@ void CoreProcess::restart()
     start();
 }
 
+void CoreProcess::reloadServerLayout()
+{
+  if (m_mode != Settings::CoreMode::Server || m_processState != ProcessState::Started)
+    return;
+
+  const auto requestId = QUuid::createUuid().toString(QUuid::Id128);
+  if (Settings::value(Settings::Server::ExternalConfig).toBool() || !m_coreIpcClient ||
+      !m_coreIpcClient->isConnected() || !persistServerConfig().first ||
+      !m_coreIpcClient->sendServerLayoutReload(requestId)) {
+    Q_EMIT serverLayoutReloadFailed();
+    return;
+  }
+
+  m_pendingServerLayoutReload = requestId;
+  QTimer::singleShot(5000, this, [this, requestId] {
+    if (m_pendingServerLayoutReload == requestId) {
+      m_pendingServerLayoutReload.clear();
+      Q_EMIT serverLayoutReloadFailed();
+    }
+  });
+}
+
 void CoreProcess::cleanup()
 {
 #ifdef DESKFLOW_LAB_BUILD
@@ -953,6 +982,7 @@ void CoreProcess::invalidatePendingEvents()
 {
   m_healthTimer.stop();
   m_healthProbe.clear();
+  m_pendingServerLayoutReload.clear();
   if (m_workspacePending) {
     const auto id = m_workspacePending->id;
     m_workspacePending.reset();
@@ -970,7 +1000,7 @@ void CoreProcess::invalidatePendingEvents()
 
 bool CoreProcess::setExpectedPeerFingerprint(const QString &value)
 {
-  if (!recoveryQuiescent() || (m_startRequested && !m_addressRecoveryHold))
+  if (!recoveryQuiescent() || (m_startRequested && !m_addressRecoveryHold && !m_recoveryBlocked))
     return false;
   const auto fp = deskflow::auth::fingerprint(value);
   if (!value.isEmpty() && fp.isEmpty())
@@ -1075,7 +1105,16 @@ void CoreProcess::coreCommunicationLost()
 
 void CoreProcess::onCoreIpcMessageReceived(const QString &command, const QString &args)
 {
-  if (command == "healthReply") {
+  if (command == "serverLayoutReloadResult") {
+    if (m_pendingServerLayoutReload.isEmpty())
+      return;
+    const bool applied = args == m_pendingServerLayoutReload + QStringLiteral(":applied");
+    if (applied || args == m_pendingServerLayoutReload + QStringLiteral(":rejected")) {
+      m_pendingServerLayoutReload.clear();
+      if (!applied)
+        Q_EMIT serverLayoutReloadFailed();
+    }
+  } else if (command == "healthReply") {
     if (!m_healthProbe.isEmpty() && args == m_healthProbe && m_startRequested && !m_recoveryBlocked) {
       m_healthProbe.clear();
       m_healthTimer.start(5000);

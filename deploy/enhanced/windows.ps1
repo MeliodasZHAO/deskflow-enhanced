@@ -3,7 +3,7 @@
 param([Parameter(Mandatory)][ValidateSet('build','package')][string]$Phase)
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
-$version = '1.27.0.17'
+$version = '1.27.0.21'
 $qt = $env:QT_SDK
 $openssl = $env:OPENSSL_SDK
 if (!$qt -or !$openssl) { throw 'Set QT_SDK and OPENSSL_SDK to the x64 release SDKs.' }
