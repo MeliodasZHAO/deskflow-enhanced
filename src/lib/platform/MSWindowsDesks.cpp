@@ -937,10 +937,13 @@ void MSWindowsDesks::checkMouseHook()
   CURSORINFO cursor{};
   cursor.cbSize = sizeof(cursor);
   RECT clip{};
-  if (!foreground || foreground == m_activeDesk->m_window || !GetCursorInfo(&cursor) ||
-      !(cursor.flags & CURSOR_SHOWING) || !GetClipCursor(&clip) || clip.left > m_x || clip.top > m_y ||
-      clip.right < m_x + m_w || clip.bottom < m_y + m_h) {
+  if (!foreground || foreground == m_activeDesk->m_window || !GetCursorInfo(&cursor) || !GetClipCursor(&clip)) {
     m_mouseHookRecovery.reset();
+    return;
+  }
+  if (!(cursor.flags & CURSOR_SHOWING) || clip.left > m_x || clip.top > m_y || clip.right < m_x + m_w ||
+      clip.bottom < m_y + m_h) {
+    m_mouseHookRecovery.cursorCaptured();
     return;
   }
 

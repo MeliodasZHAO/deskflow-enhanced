@@ -12,18 +12,51 @@ class WindowsMouseHookRecoveryTests : public QObject
   Q_OBJECT
 
 private Q_SLOTS:
-  void recoversOnceAfterSwitchingToAnOrdinaryWindow()
+  void recoversFromCaptureAfterTheDesktopSettles()
+  {
+    WindowsMouseHookRecovery recovery;
+    QVERIFY(!recovery.observe(1, 9, 10, 10));
+    recovery.cursorCaptured();
+    QVERIFY(!recovery.observe(2, 20, 10, 10));
+    QVERIFY(recovery.observe(2, 20, 10, 10));
+    for (int i = 0; i < 10; ++i)
+      QVERIFY(!recovery.observe(2, 20, 10, 10));
+  }
+
+  void skipsRecoveryWhenCallbacksResumeAfterCapture()
+  {
+    WindowsMouseHookRecovery recovery;
+    recovery.cursorCaptured();
+    QVERIFY(!recovery.observe(1, 20, 10, 10));
+    QVERIFY(!recovery.observe(1, 21, 20, 10));
+    QVERIFY(!recovery.observe(1, 21, 20, 10));
+  }
+
+  void recoversWhenTheFirstMoveAfterSwitchingWindowsReachesTheEdge()
   {
     WindowsMouseHookRecovery recovery;
     QVERIFY(!recovery.observe(1, 9, 0, 0));
     QVERIFY(!recovery.observe(2, 9, 10, 10));
-    QVERIFY(!recovery.observe(2, 9, 20, 10));
-    QVERIFY(recovery.observe(2, 9, 20, 10));
-    QVERIFY(!recovery.observe(2, 9, 25, 10));
-    QVERIFY(!recovery.observe(2, 9, 30, 10));
-    QVERIFY(!recovery.observe(3, 9, 30, 10));
-    QVERIFY(!recovery.observe(3, 9, 40, 10));
-    QVERIFY(recovery.observe(3, 9, 40, 10));
+    QVERIFY(recovery.observe(2, 9, 10, 10));
+  }
+
+  void retriesWithFreshEvidenceInTheSameWindow()
+  {
+    WindowsMouseHookRecovery recovery;
+    QVERIFY(!recovery.observe(1, 9, 0, 0));
+    QVERIFY(!recovery.observe(1, 9, 10, 0));
+    QVERIFY(recovery.observe(1, 9, 10, 0));
+    for (long x = 11; x <= 14; ++x)
+      QVERIFY(!recovery.observe(1, 9, x, 0));
+    QVERIFY(recovery.observe(1, 9, 14, 0));
+
+    // Idle polls cannot cause another installation. After callbacks resume,
+    // a later interruption in the same window can still be repaired.
+    QVERIFY(!recovery.observe(1, 10, 15, 0));
+    for (int i = 0; i < 10; ++i)
+      QVERIFY(!recovery.observe(1, 10, 15, 0));
+    QVERIFY(!recovery.observe(1, 10, 20, 0));
+    QVERIFY(recovery.observe(1, 10, 20, 0));
   }
 
   void neverRepairsAnIdleOrResponsiveHook()
@@ -32,7 +65,7 @@ private Q_SLOTS:
     QVERIFY(!recovery.observe(1, 9, 10, 10));
     QVERIFY(!recovery.observe(1, 9, 10, 10));
     QVERIFY(!recovery.observe(2, 9, 10, 10));
-    QVERIFY(!recovery.observe(2, 9, 20, 10));
+    QVERIFY(!recovery.observe(2, 10, 20, 10));
     QVERIFY(!recovery.observe(2, 10, 20, 10));
     QVERIFY(!recovery.observe(2, 11, 30, 10));
     QVERIFY(!recovery.observe(2, 11, 30, 10));
