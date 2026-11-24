@@ -786,7 +786,7 @@ void MSWindowsDesks::deskThread(const void *vdesk)
 
     case DESKFLOW_MSG_REFRESH_MOUSE_HOOK:
       if (MSWindowsHook::refreshMouseHook()) {
-        LOG_INFO("refreshed Windows mouse hook after local cursor movement without hook events");
+        LOG_INFO("refreshed Windows mouse hook after a local input interruption");
       }
       break;
     }
@@ -938,7 +938,9 @@ void MSWindowsDesks::checkMouseHook()
   cursor.cbSize = sizeof(cursor);
   RECT clip{};
   if (!foreground || foreground == m_activeDesk->m_window || !GetCursorInfo(&cursor) || !GetClipCursor(&clip)) {
-    m_mouseHookRecovery.reset();
+    // Windows can temporarily have no foreground window while an app exits.
+    // Resume sampling on the next window without forgetting the capture.
+    m_mouseHookRecovery.observationUnavailable();
     return;
   }
   if (!(cursor.flags & CURSOR_SHOWING) || clip.left > m_x || clip.top > m_y || clip.right < m_x + m_w ||

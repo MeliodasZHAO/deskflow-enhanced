@@ -32,6 +32,28 @@ private Q_SLOTS:
     QVERIFY(!recovery.observe(1, 21, 20, 10));
   }
 
+  void retainsCaptureWhenTheForegroundWindowDisappears()
+  {
+    WindowsMouseHookRecovery recovery;
+    QVERIFY(!recovery.observe(1, 9, 10, 10));
+    recovery.cursorCaptured();
+    recovery.observationUnavailable();
+    recovery.observationUnavailable();
+    QVERIFY(!recovery.observe(2, 9, 10, 10));
+    QVERIFY(recovery.observe(2, 9, 10, 10));
+    QVERIFY(!recovery.observe(2, 9, 10, 10));
+  }
+
+  void discardsMotionWithoutAMatchingObservation()
+  {
+    WindowsMouseHookRecovery recovery;
+    QVERIFY(!recovery.observe(1, 9, 10, 10));
+    QVERIFY(!recovery.observe(1, 9, 20, 10));
+    recovery.observationUnavailable();
+    QVERIFY(!recovery.observe(2, 9, 20, 10));
+    QVERIFY(!recovery.observe(2, 9, 20, 10));
+  }
+
   void recoversWhenTheFirstMoveAfterSwitchingWindowsReachesTheEdge()
   {
     WindowsMouseHookRecovery recovery;
@@ -76,7 +98,8 @@ private Q_SLOTS:
     WindowsMouseHookRecovery recovery;
     QVERIFY(!recovery.observe(1, 9, 10, 10));
     QVERIFY(!recovery.observe(1, 9, 20, 10));
-    recovery.reset(); // Cursor confined, secure desktop, or input routed to the peer.
+    recovery.cursorCaptured();
+    recovery.reset(); // Secure desktop, screen saver, or input routed to the peer.
     QVERIFY(!recovery.observe(1, 9, 25, 10));
     QVERIFY(!recovery.observe(1, 9, 25, 10));
   }

@@ -12,10 +12,15 @@ namespace deskflow::platform {
 class WindowsMouseHookRecovery
 {
 public:
-  void cursorCaptured()
+  void observationUnavailable()
   {
     m_foreground = 0;
     m_pendingMotion = false;
+  }
+
+  void cursorCaptured()
+  {
+    observationUnavailable();
     m_returningFromCapture = true;
   }
 
