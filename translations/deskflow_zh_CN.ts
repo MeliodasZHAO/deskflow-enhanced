@@ -1713,8 +1713,12 @@ Additionally, check you are able to %1 the server config file: %2</source>
             <translation>返回设置</translation>
         </message>
         <message>
-            <source>On the other computer, choose Receive control. Find %1 nearby, or enter this computer's address. Verify identities on the first connection; its screens will appear here automatically.</source>
-            <translation>在另一台电脑上选择“接收控制”，从附近电脑中选择 %1，或输入本机地址。首次连接时核对身份；连接后，对方屏幕会自动出现在桌面中。</translation>
+            <source>On the other computer, choose to use this computer’s keyboard and mouse. Enter the address shown below, or enable discovery and select the temporary name shown here.</source>
+            <translation>在另一台电脑上选择「使用另一台的键盘和鼠标」，再输入下方地址。也可以在这里开启发现，让另一台电脑搜索显示的临时名称。</translation>
+        </message>
+        <message>
+            <source>Choose this name on the other computer: %1</source>
+            <translation>在另一台电脑上选择此名称：%1</translation>
         </message>
         <message>
             <source>This computer provides keyboard and mouse input. Start a connection from the receiving computer. Saved names and recovery preferences remain available.</source>
@@ -2639,12 +2643,16 @@ Enabling this setting will disable the server config GUI.</source>
             <translation>TLS 证书重新生成成功。</translation>
         </message>
         <message>
-            <source>On Overview, click “Start sharing”. Then connect from the receiving computer.</source>
-            <translation>回到概览后，点「开始共享」，再从被控电脑连接。</translation>
+            <source>On Overview, click “Start sharing”, then “Add computer” to find the address or enable discovery.</source>
+            <translation>回到概览后，点「开始共享」，再点「添加电脑」查看地址或开启发现。</translation>
         </message>
         <message>
-            <source>On Overview, choose the computer that provides the keyboard and mouse, or click “Enter address”. Then click the connection button.</source>
-            <translation>回到概览后，选择提供键鼠的电脑，也可以点「输入地址」。选好后，点连接按钮。</translation>
+            <source>On Overview, click “Find computer” to search, or “Enter address” to connect directly.</source>
+            <translation>回到概览后，点「查找电脑」搜索，或点「输入地址」直接连接。</translation>
+        </message>
+        <message>
+            <source>On Overview, click “Pair and connect” to connect to the address you entered.</source>
+            <translation>回到概览后，点「配对并连接」，使用刚才输入的地址。</translation>
         </message>
         <message>
             <source>Return to Overview and choose which computer provides the keyboard and mouse.</source>
@@ -3257,7 +3265,7 @@ Enabling this setting will disable the server config GUI.</source>
         </message>
         <message>
             <source>Use this address</source>
-            <translation>使用此地址</translation>
+            <translation type="vanished">使用此地址</translation>
         </message>
         <message>
             <source>Preparing to connect</source>
@@ -3361,7 +3369,7 @@ Enabling this setting will disable the server config GUI.</source>
         </message>
         <message>
             <source>Connect</source>
-            <translation type="vanished">连接</translation>
+            <translation>连接</translation>
         </message>
         <message>
             <source>Change address…</source>
@@ -4254,8 +4262,8 @@ System position: %8, %9 input units</source>
             <translation type="vanished">选择地址后连接，并在提示时核对两端指纹。发现设备不会自动授予信任。</translation>
         </message>
         <message>
-            <source>Use address</source>
-            <translation>使用此地址</translation>
+            <source>Connect</source>
+            <translation>连接</translation>
         </message>
         <message>
             <source>%1 · %2</source>
@@ -4274,8 +4282,8 @@ System position: %8, %9 input units</source>
             <translation>用于发现设备的局域网接口</translation>
         </message>
         <message>
-            <source>Search for 5 minutes</source>
-            <translation>搜索 5 分钟</translation>
+            <source>Search</source>
+            <translation>搜索</translation>
         </message>
         <message>
             <source>Refresh networks</source>
@@ -4310,12 +4318,32 @@ System position: %8, %9 input units</source>
             <translation>仅接受明确准备的隔离测试凭据，不会导入现用身份文件。</translation>
         </message>
         <message>
-            <source>Find the computer whose keyboard and mouse you want to use. Its identity is checked before a connection is allowed.</source>
-            <translation>查找你想使用键盘和鼠标的电脑。连接前会核对对方的身份。</translation>
+            <source>On the computer providing the keyboard and mouse, start sharing and enable discovery. Search for the temporary name shown on that computer.</source>
+            <translation>在提供键鼠的电脑上开始共享并开启发现，然后搜索它显示的临时名称。</translation>
         </message>
         <message>
-            <source>No computers listed yet. Choose a network and search, or enter the other computer’s address.</source>
-            <translation>还没有找到电脑。请选择网络后查找，或直接输入另一台电脑的地址。</translation>
+            <source>Choose a network and search for the saved computer.</source>
+            <translation>选择局域网，搜索已保存的电脑。</translation>
+        </message>
+        <message>
+            <source>No eligible local network was found. Enter the other computer’s address.</source>
+            <translation>未找到可搜索的局域网。请输入另一台电脑的地址。</translation>
+        </message>
+        <message>
+            <source>Choose a network before searching, or enter the address directly.</source>
+            <translation>请先选择局域网，或直接输入地址。</translation>
+        </message>
+        <message>
+            <source>No computers found yet. Search or enter the address directly.</source>
+            <translation>暂无电脑。可以搜索或直接输入地址。</translation>
+        </message>
+        <message>
+            <source>Looking up the local address…</source>
+            <translation>正在查找局域网地址…</translation>
+        </message>
+        <message>
+            <source>Could not find a single local address. Search again or enter the address directly.</source>
+            <translation>未能确定局域网地址。请重新搜索或直接输入地址。</translation>
         </message>
         <message>
             <source>Enter address…</source>

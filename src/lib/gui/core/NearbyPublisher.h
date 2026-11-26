@@ -34,6 +34,7 @@ public:
   void renew(); // Timer and deterministic offline tests use the same path.
 Q_SIGNALS:
   void status(const QString &text);
+  void advertisedNameChanged(const QString &name);
   void exposureEnded();
   void selectedAddressChanged(const DiscoveryScope &before, const DiscoveryScope &after);
 

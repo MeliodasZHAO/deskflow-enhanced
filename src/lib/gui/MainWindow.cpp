@@ -568,10 +568,7 @@ void MainWindow::setupConnectionHome()
     refreshConnectionHome();
   });
   connect(m_home, &ConnectionHome::addressChosen, this, [this](const QString &address) {
-    if (m_coreProcess.mode() != CoreMode::Client || m_coreProcess.processState() != ProcessState::Stopped)
-      return;
-    ui->cbHostname->lineEdit()->setText(address);
-    refreshConnectionHome();
+    connectToAddress(address);
   });
   connect(m_home, &ConnectionHome::findDeviceRequested, this, [this] {
     if (m_coreProcess.mode() == CoreMode::Client)
@@ -651,9 +648,8 @@ void MainWindow::updateSecondaryPage()
   auto *preparation = findChild<QLabel *>("connectionPreparation");
   preparation->setVisible(m_secondaryAddComputer);
   preparation->setText(
-      tr("On the other computer, choose Receive control. Find %1 nearby, or enter this computer's address. Verify "
-         "identities on the first connection; its screens will appear here automatically.")
-          .arg(Settings::value(Settings::Core::ComputerName).toString())
+      tr("On the other computer, choose to use this computer’s keyboard and mouse. Enter the address shown below, "
+         "or enable discovery and select the temporary name shown here.")
   );
 }
 
@@ -918,13 +914,10 @@ void MainWindow::setupControls()
       m_homePages->setCurrentWidget(m_home);
       m_home->showManualEntry();
     });
-    if (dialog.exec() == QDialog::Accepted) {
-      // User selection edits an endpoint only. Existing Connect + TLS/pin flow
-      // still decides whether a session can be established and trusted.
-      Settings::setValue(Settings::Core::Port, dialog.selectedPort());
-      ui->cbHostname->lineEdit()->setText(dialog.selectedHost());
-    }
+    const bool accepted = dialog.exec() == QDialog::Accepted;
     m_connectionDiagnostics->setDiscoveryActive(false);
+    if (accepted)
+      connectToAddress(dialog.connectionHost(), dialog.connectionPort());
   });
   m_nearbyPublisher = new NearbyPublisher(this);
   // Server discovery is a primary setup step, independent of advanced settings
@@ -947,6 +940,9 @@ void MainWindow::setupControls()
     advertiseNetwork->addItem(tr("Choose a private Wi-Fi or Ethernet network"));
     for (const auto &scope : *scopes)
       advertiseNetwork->addItem(tr("%1 · %2").arg(scope.name, scope.address.toString()));
+    const auto binding = Settings::value(Settings::Core::Interface).toString();
+    if (scopes->size() == 1 && (binding.isEmpty() || QHostAddress(binding) == scopes->first().address))
+      advertiseNetwork->setCurrentIndex(1);
   };
   reloadNetworks();
   discoveryLayout->addWidget(advertiseNetwork);
@@ -966,7 +962,7 @@ void MainWindow::setupControls()
   auto *advertise = new deskflow::gui::OptionCheckBox(tr("Make this server discoverable"), this);
   advertise->setObjectName("advertiseNearbyServer");
   advertise->setChecked(false);
-  advertise->setEnabled(false);
+  advertise->setEnabled(advertiseNetwork->currentIndex() > 0);
   advertise->setToolTip(tr(
       "Shares a temporary random name, selected private address and port. No account name or fingerprint is advertised."
   ));
@@ -976,6 +972,13 @@ void MainWindow::setupControls()
   advertiseStatus->setWordWrap(true);
   advertiseStatus->setTextFormat(Qt::PlainText);
   discoveryLayout->addWidget(advertiseStatus);
+  auto *advertiseName = new QLabel(this);
+  advertiseName->setObjectName("advertiseName");
+  advertiseName->setTextFormat(Qt::PlainText);
+  advertiseName->setTextInteractionFlags(Qt::TextSelectableByMouse);
+  advertiseName->setWordWrap(true);
+  advertiseName->hide();
+  discoveryLayout->addWidget(advertiseName);
   auto configurePublisher = [this, advertise, advertiseNetwork, advertiseStatus, scopes, duration] {
     const auto index = advertiseNetwork->currentIndex() - 1;
     const auto scope = index >= 0 && index < scopes->size() ? (*scopes)[index] : DiscoveryScope{};
@@ -1010,6 +1013,10 @@ void MainWindow::setupControls()
       m_nearbyPublisher->configure(false, false, 0, true, true, {});
   });
   connect(m_nearbyPublisher, &NearbyPublisher::status, advertiseStatus, &QLabel::setText);
+  connect(m_nearbyPublisher, &NearbyPublisher::advertisedNameChanged, this, [advertiseName](const QString &name) {
+    advertiseName->setText(name.isEmpty() ? QString() : tr("Choose this name on the other computer: %1").arg(name));
+    advertiseName->setVisible(!name.isEmpty());
+  });
   connect(m_nearbyPublisher, &NearbyPublisher::exposureEnded, this, [advertise] {
     const QSignalBlocker blocker(advertise);
     advertise->setChecked(false);
@@ -1023,7 +1030,7 @@ void MainWindow::setupControls()
   );
   connect(
       m_networkMonitor, &NetworkMonitor::networkConfigurationChanged, this,
-      [this, reloadNetworks, advertise, advertiseNetwork, scopes] {
+      [this, reloadNetworks, advertise, advertiseNetwork, scopes, configurePublisher] {
         // Listener recovery is independent of optional discovery exposure.
         m_coreProcess.observeServerInterfaces();
         m_nearbyPublisher->networkChanged();
@@ -1041,7 +1048,8 @@ void MainWindow::setupControls()
           advertise->setEnabled(true);
         } else {
           advertise->setChecked(false);
-          advertise->setEnabled(false);
+          advertise->setEnabled(advertiseNetwork->currentIndex() > 0);
+          configurePublisher();
         }
       }
   );
@@ -2512,6 +2520,23 @@ void MainWindow::remoteHostChanged(const QString &newRemoteHost)
     Settings::setValue(Settings::Client::RemoteHost);
   } else {
     Settings::setValue(Settings::Client::RemoteHost, newRemoteHost);
+  }
+}
+
+void MainWindow::connectToAddress(const QString &address, int discoveredPort)
+{
+  if (address.isEmpty() || m_coreProcess.mode() != CoreMode::Client ||
+      m_coreProcess.processState() != ProcessState::Stopped)
+    return;
+  if (discoveredPort > 0)
+    Settings::setValue(Settings::Core::Port, discoveredPort);
+  ui->cbHostname->lineEdit()->setText(address);
+  refreshConnectionHome();
+  if (canRunCore()) {
+    if (m_home->state().identityReady)
+      startCore();
+    else
+      openSettingsPage(3);
   }
 }
 

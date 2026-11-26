@@ -8,13 +8,14 @@ namespace deskflow::gui {
 class NearbyDiscovery;
 class IdentityBindings;
 class DeviceRecovery;
+class ScopedAddressResolver;
 class NearbyDevicesDialog : public QDialog
 {
   Q_OBJECT
 public:
   explicit NearbyDevicesDialog(
       QWidget *parent = nullptr, DiscoveryScopeSource source = DiscoveryScope::current,
-      IdentityBindings *bindings = nullptr, const QString &expected = {}
+      IdentityBindings *bindings = nullptr, const QString &expected = {}, ScopedAddressResolver *resolver = nullptr
   );
   DeviceRecovery *recovery() const
   {
@@ -22,6 +23,14 @@ public:
   }
   QString selectedHost() const;
   int selectedPort() const;
+  QString connectionHost() const
+  {
+    return m_connectionHost;
+  }
+  int connectionPort() const
+  {
+    return m_connectionPort;
+  }
 Q_SIGNALS:
   void searchingChanged(bool active);
   void manualEntryRequested();
@@ -32,5 +41,7 @@ private:
   NearbyDiscovery *m_discovery;
   QListWidget *m_devices;
   DeviceRecovery *m_recovery = nullptr;
+  QString m_connectionHost;
+  int m_connectionPort = 0;
 };
 } // namespace deskflow::gui

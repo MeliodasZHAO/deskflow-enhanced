@@ -15,6 +15,10 @@ NearbyPublisher::NearbyPublisher(QObject *parent, DiscoveryTransport *t, Discove
   m_deadline.setInterval(kDiscoverySessionMs);
   connect(&m_deadline, &QTimer::timeout, this, &NearbyPublisher::renew);
   connect(m_transport, &DiscoveryTransport::status, this, &NearbyPublisher::status);
+  connect(m_transport, &DiscoveryTransport::activeChanged, this, [this](bool active) {
+    Q_EMIT advertisedNameChanged(active && m_advertising ? DiscoveryAdvertisement{m_scope, m_token, m_port}.instance()
+                                                        : QString());
+  });
   connect(m_transport, &DiscoveryTransport::sessionEnded, this, [this] {
     const auto old = m_scope;
     // An address change on the already selected link can be revalidated.

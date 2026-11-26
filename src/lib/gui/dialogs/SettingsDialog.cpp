@@ -460,11 +460,11 @@ void SettingsDialog::regenCertificates()
   const auto mode = Settings::value(Settings::Core::CoreMode).value<Settings::CoreMode>();
   QString nextStep;
   if (mode == Settings::CoreMode::Server)
-    nextStep = tr("On Overview, click “Start sharing”. Then connect from the receiving computer.");
+    nextStep = tr("On Overview, click “Start sharing”, then “Add computer” to find the address or enable discovery.");
   else if (mode == Settings::CoreMode::Client)
-    nextStep =
-        tr("On Overview, choose the computer that provides the keyboard and mouse, or click “Enter address”. "
-           "Then click the connection button.");
+    nextStep = Settings::value(Settings::Client::RemoteHost).toString().isEmpty()
+                   ? tr("On Overview, click “Find computer” to search, or “Enter address” to connect directly.")
+                   : tr("On Overview, click “Pair and connect” to connect to the address you entered.");
   else
     nextStep = tr("Return to Overview and choose which computer provides the keyboard and mouse.");
 

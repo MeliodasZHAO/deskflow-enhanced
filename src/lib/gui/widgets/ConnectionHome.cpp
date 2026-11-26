@@ -1050,12 +1050,12 @@ void ConnectionHome::render()
   );
   m_addressLabel->setText(tr("Computer name or IP address"));
   m_address->setPlaceholderText(tr("For example, work-pc.local"));
-  findChild<QPushButton *>("homeAddressSubmit")->setText(tr("Use this address"));
+  findChild<QPushButton *>("homeAddressSubmit")->setText(tr("Connect"));
 
   QString status, reason, action, tone = "idle";
   if (choosing) {
   } else if (m_editingAddress)
-    action = tr("Use this address");
+    action = tr("Connect");
   else
     switch (m_state.stage) {
     case Stage::Starting:

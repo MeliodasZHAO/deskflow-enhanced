@@ -6,6 +6,7 @@
 #include "gui/core/DeviceRecovery.h"
 #include "gui/core/DiscoveryCatalog.h"
 #include "gui/core/NearbyDiscovery.h"
+#include "gui/core/RecoveryProbe.h"
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QHBoxLayout>
@@ -14,10 +15,12 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QTimer>
+#include <QUuid>
 #include <QVBoxLayout>
 namespace deskflow::gui {
 NearbyDevicesDialog::NearbyDevicesDialog(
-    QWidget *parent, DiscoveryScopeSource source, IdentityBindings *bindings, const QString &expected
+    QWidget *parent, DiscoveryScopeSource source, IdentityBindings *bindings, const QString &expected,
+    ScopedAddressResolver *resolver
 )
     : QDialog(parent),
       m_discovery(new NearbyDiscovery(this)),
@@ -25,6 +28,10 @@ NearbyDevicesDialog::NearbyDevicesDialog(
 {
   if (bindings && bindings->devices().contains(IdentityBindings::normalizedFingerprint(expected)))
     m_recovery = new DeviceRecovery(*bindings, *m_discovery, this);
+  if (deskflow::lab::kCandidateExecutionEnabled && !m_recovery && !resolver)
+    resolver = createScopedAddressResolver(this, source, [this](const QString &host, int port) {
+      return m_discovery->serviceNames(host, port);
+    });
   deskflow::gui::applyExperienceStyle(this);
   setWindowTitle(tr("Nearby computers"));
   resize(620, 460);
@@ -40,8 +47,8 @@ NearbyDevicesDialog::NearbyDevicesDialog(
   title->setFont(titleFont);
   layout->addWidget(title);
   auto *help = new QLabel(
-      tr("Find the computer whose keyboard and mouse you want to use. Its identity is checked before a connection is "
-         "allowed."),
+      tr("On the computer providing the keyboard and mouse, start sharing and enable discovery. Search for the "
+         "temporary name shown on that computer."),
       this
   );
   if (m_recovery)
@@ -69,6 +76,8 @@ NearbyDevicesDialog::NearbyDevicesDialog(
     network->addItem(tr("Choose a private Wi-Fi or Ethernet network"));
     for (const auto &scope : *scopes)
       network->addItem(tr("%1 · %2").arg(scope.name, scope.address.toString()));
+    if (!m_recovery && scopes->size() == 1)
+      network->setCurrentIndex(1);
   };
   reload();
   auto *networkRow = new QHBoxLayout;
@@ -80,9 +89,7 @@ NearbyDevicesDialog::NearbyDevicesDialog(
   m_devices->setObjectName("nearbyDevices");
   m_devices->setAccessibleName(tr("Discovered computers"));
   layout->addWidget(m_devices, 1);
-  auto *empty = new QLabel(
-      tr("No computers listed yet. Choose a network and search, or enter the other computer’s address."), this
-  );
+  auto *empty = new QLabel(this);
   empty->setObjectName("nearbyEmpty");
   empty->setWordWrap(true);
   empty->setAlignment(Qt::AlignCenter);
@@ -103,13 +110,13 @@ NearbyDevicesDialog::NearbyDevicesDialog(
   statusLabel->setWordWrap(true);
   layout->addWidget(statusLabel);
   auto *buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, this);
-  auto *select = buttons->addButton(tr("Use address"), QDialogButtonBox::AcceptRole);
+  auto *select = buttons->addButton(tr("Connect"), QDialogButtonBox::AcceptRole);
   select->setEnabled(false);
   select->setObjectName("selectNearbyAddress");
   if (m_recovery)
     select->hide();
   auto *refresh = buttons->addButton(
-      m_recovery ? tr("Search for 2 minutes") : tr("Search for 5 minutes"), QDialogButtonBox::ActionRole
+      m_recovery ? tr("Search for 2 minutes") : tr("Search"), QDialogButtonBox::ActionRole
   );
   refresh->setObjectName("refreshNearby");
   layout->addWidget(buttons);
@@ -133,13 +140,23 @@ NearbyDevicesDialog::NearbyDevicesDialog(
     credentials->hide();
 #endif
   }
-  refresh->setEnabled(false);
-  connect(network, &QComboBox::currentIndexChanged, this, [this, refresh](int index) {
+  const auto updateNetwork = [this, network, scopes, refresh, empty, statusLabel] {
+    refresh->setEnabled(network->currentIndex() > 0);
+    empty->setText(
+        m_recovery ? tr("Choose a network and search for the saved computer.")
+        : scopes->isEmpty() ? tr("No eligible local network was found. Enter the other computer’s address.")
+        : network->currentIndex() == 0 ? tr("Choose a network before searching, or enter the address directly.")
+                                       : tr("No computers found yet. Search or enter the address directly.")
+    );
+    statusLabel->clear();
+  };
+  updateNetwork();
+  connect(network, &QComboBox::currentIndexChanged, this, [this, updateNetwork] {
     if (m_recovery)
       m_recovery->cancel();
     m_discovery->stop();
     m_devices->clear();
-    refresh->setEnabled(index > 0);
+    updateNetwork();
   });
   connect(refresh, &QPushButton::clicked, this, [this, network, scopes, expected] {
     const auto index = network->currentIndex() - 1;
@@ -149,9 +166,9 @@ NearbyDevicesDialog::NearbyDevicesDialog(
       m_discovery->start((*scopes)[index]);
     }
   });
-  connect(reloadButton, &QPushButton::clicked, this, [reload, refresh] {
+  connect(reloadButton, &QPushButton::clicked, this, [reload, updateNetwork] {
     reload();
-    refresh->setEnabled(false);
+    updateNetwork();
   });
   connect(this, &QDialog::finished, m_discovery, &NearbyDiscovery::stop);
   if (m_recovery) {
@@ -173,13 +190,66 @@ NearbyDevicesDialog::NearbyDevicesDialog(
     });
   }
   connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-  connect(buttons, &QDialogButtonBox::accepted, this, [this] {
-    if (NearbyDiscovery::validEndpoint(selectedHost(), selectedPort()))
-      accept();
+  const auto confirmEndpoint = [this](const QString &host, int port) {
+    // Finishing the dialog stops discovery and clears the selected item.
+    m_connectionHost = host;
+    m_connectionPort = port;
+    accept();
+  };
+  auto attempt = std::make_shared<deskflow::auth::Context>();
+  connect(buttons, &QDialogButtonBox::accepted, this, [=, this] {
+    const auto host = selectedHost();
+    const auto port = selectedPort();
+    if (m_recovery || !NearbyDiscovery::validEndpoint(host, port))
+      return;
+    if (!resolver) {
+      confirmEndpoint(host, port);
+      return;
+    }
+    if (attempt->valid())
+      return;
+    const auto index = network->currentIndex() - 1;
+    if (index < 0 || index >= scopes->size())
+      return;
+    *attempt = {QUuid::createUuid().toString(QUuid::Id128), {}, 1};
+    select->setEnabled(false);
+    statusLabel->setText(tr("Looking up the local address…"));
+    resolver->start(*attempt, (*scopes)[index], host, port);
   });
-  connect(m_devices, &QListWidget::currentRowChanged, this, [this, select] {
+  const auto updateSelection = [this, select, resolver, attempt] {
+    if (attempt->valid()) {
+      *attempt = {};
+      resolver->cancel();
+    }
     select->setEnabled(NearbyDiscovery::validEndpoint(selectedHost(), selectedPort()));
-  });
+  };
+  connect(m_devices, &QListWidget::currentRowChanged, this, updateSelection);
+  if (resolver) {
+    connect(this, &QDialog::finished, resolver, &ScopedAddressResolver::cancel);
+    const auto addressUnavailable = [statusLabel, updateSelection] {
+      updateSelection();
+      statusLabel->setText(tr("Could not find a single local address. Search again or enter the address directly."));
+    };
+    connect(resolver, &ScopedAddressResolver::failed, this, [attempt, addressUnavailable](const auto &context) {
+      if (context == *attempt)
+        addressUnavailable();
+    });
+    connect(
+        resolver, &ScopedAddressResolver::addresses, this,
+        [this, attempt, confirmEndpoint, addressUnavailable](
+            const auto &context, const DiscoveryScope &scope, const QString &host, const QStringList &addresses
+        ) {
+          if (context != *attempt)
+            return;
+          if (host != selectedHost() || addresses.size() != 1 || !validProbeAddress(scope, QHostAddress(addresses[0]))) {
+            addressUnavailable();
+            return;
+          }
+          *attempt = {};
+          confirmEndpoint(addresses[0], selectedPort());
+        }
+    );
+  }
   connect(m_discovery, &NearbyDiscovery::status, statusLabel, &QLabel::setText);
   connect(m_discovery, &NearbyDiscovery::searchingChanged, this, &NearbyDevicesDialog::searchingChanged);
   connect(m_discovery, &NearbyDiscovery::removed, this, [this](const QString &key) {
@@ -214,7 +284,6 @@ NearbyDevicesDialog::NearbyDevicesDialog(
         item->setData(Qt::UserRole + 2, port);
       }
   );
-  statusLabel->setText(tr("Choose a network, then search. VPN and public interfaces are excluded."));
 }
 QString NearbyDevicesDialog::selectedHost() const
 {

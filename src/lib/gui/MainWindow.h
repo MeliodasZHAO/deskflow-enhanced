@@ -201,6 +201,7 @@ private:
   void daemonIpcClientConnectionFailed();
   void toggleCanRunCore(bool enableButtons);
   void remoteHostChanged(const QString &newRemoteHost);
+  void connectToAddress(const QString &address, int discoveredPort = 0);
   bool canQuickReconnect() const;
   void updateQuickReconnectControls();
   void quickReconnect(const QString &address, int port);

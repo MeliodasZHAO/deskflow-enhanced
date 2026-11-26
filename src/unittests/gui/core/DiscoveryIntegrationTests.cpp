@@ -5,6 +5,7 @@
 #include "gui/core/DiscoveryTransport.h"
 #include "gui/core/NearbyDiscovery.h"
 #include "gui/core/NearbyPublisher.h"
+#include "gui/core/RecoveryProbe.h"
 #include "gui/dialogs/NearbyDevicesDialog.h"
 #include <QApplication>
 #include <QComboBox>
@@ -46,6 +47,26 @@ public:
     name = ad.instance();
     port = ad.port;
     iface = ad.scope.index;
+  }
+};
+class FakeAddressResolver final : public ScopedAddressResolver
+{
+public:
+  deskflow::auth::Context attempt;
+  DiscoveryScope selectedScope;
+  QString host;
+  void start(const deskflow::auth::Context &context, const DiscoveryScope &scope, const QString &name, int) override
+  {
+    attempt = context;
+    selectedScope = scope;
+    host = name;
+  }
+  void cancel() override
+  {
+  }
+  void reply(const QString &address)
+  {
+    Q_EMIT addresses(attempt, selectedScope, host, {address}, 1000);
   }
 };
 class DiscoveryIntegrationTests : public QObject
@@ -314,14 +335,19 @@ private Q_SLOTS:
   {
     FakeTransport t;
     NearbyPublisher p(nullptr, &t);
+    QSignalSpy advertisedName(&p, &NearbyPublisher::advertisedNameChanged);
     p.configure(true, true, 34800, true, true, scope());
     p.processChanged(PS::Started);
     p.connectionChanged(CS::Listening);
     QVERIFY(QRegularExpression("^Deskflow-[0-9a-f]{24}$").match(t.name).hasMatch());
+    QCOMPARE(advertisedName.count(), 0);
+    Q_EMIT t.activeChanged(true);
+    QCOMPARE(advertisedName.last()[0].toString(), t.name);
     auto *deadline = p.findChild<QTimer *>("publisherDeadline");
     QVERIFY(deadline);
     QCOMPARE(deadline->interval(), 300000);
     QVERIFY(QMetaObject::invokeMethod(deadline, "timeout", Qt::DirectConnection));
+    QCOMPARE(advertisedName.last()[0].toString(), QString());
     QCOMPARE(t.stops, 1);
     p.connectionChanged(CS::Listening);
     QCOMPARE(t.advertisements, 1);
@@ -407,27 +433,71 @@ private Q_SLOTS:
     s.prefix = prefix;
     QCOMPARE(s.valid(), allowed);
   }
-  void dialogRequiresExplicitNetworkAndSearch()
+  void dialogRequiresExplicitSearch_data()
   {
-    NearbyDevicesDialog dialog(nullptr, [] { return QVector<DiscoveryScope>{scope()}; });
+    QTest::addColumn<int>("networkCount");
+    QTest::newRow("none") << 0;
+    QTest::newRow("one") << 1;
+    QTest::newRow("two") << 2;
+  }
+  void dialogRequiresExplicitSearch()
+  {
+    QFETCH(int, networkCount);
+    NearbyDevicesDialog dialog(nullptr, [networkCount] {
+      QVector<DiscoveryScope> scopes;
+      for (int i = 0; i < networkCount; ++i)
+        scopes.push_back(scope(7 + i));
+      return scopes;
+    });
     auto *network = dialog.findChild<QComboBox *>("nearbyNetwork");
     auto *search = dialog.findChild<QPushButton *>("refreshNearby");
     QVERIFY(network && search);
-    QCOMPARE(network->currentIndex(), 0);
-    QVERIFY(!search->isEnabled());
+    QCOMPARE(network->currentIndex(), networkCount == 1 ? 1 : 0);
+    QCOMPARE(search->isEnabled(), networkCount == 1);
     QSignalSpy active(dialog.findChild<NearbyDiscovery *>(), &NearbyDiscovery::searchingChanged);
     dialog.show();
     QTest::qWait(10);
     QCOMPARE(active.count(), 0);
-    network->setCurrentIndex(1);
-    QVERIFY(search->isEnabled());
+    if (networkCount > 0) {
+      network->setCurrentIndex(1);
+      QVERIFY(search->isEnabled());
+    }
     for (const auto &event : active)
       QVERIFY(!event[0].toBool());
     auto *reload = dialog.findChild<QPushButton *>("refreshNetworks");
     QVERIFY(reload);
     reload->click();
-    QCOMPARE(network->currentIndex(), 0);
-    QVERIFY(!search->isEnabled());
+    QCOMPARE(network->currentIndex(), networkCount == 1 ? 1 : 0);
+    QCOMPARE(search->isEnabled(), networkCount == 1);
+  }
+  void connectingUsesOnlyTheScopedAddressAndKeepsItWhenDiscoveryStops()
+  {
+    FakeAddressResolver resolver;
+    NearbyDevicesDialog dialog(nullptr, [] { return QVector<DiscoveryScope>{scope()}; }, nullptr, {}, &resolver);
+    auto *provider = dialog.findChild<NearbyDiscovery *>();
+    auto *list = dialog.findChild<QListWidget *>("nearbyDevices");
+    auto *select = dialog.findChild<QPushButton *>("selectNearbyAddress");
+    connect(&dialog, &QDialog::finished, provider, [provider] { Q_EMIT provider->removed("pc"); });
+    Q_EMIT provider->found("pc", "PC", "pc.local", 34800);
+    list->setCurrentRow(0);
+    select->click();
+    QVERIFY(resolver.attempt.valid());
+    QCOMPARE(resolver.host, QString("pc.local"));
+    QVERIFY(!select->isEnabled());
+    resolver.reply("198.18.0.186");
+    QCOMPARE(dialog.result(), int(QDialog::Rejected));
+    QVERIFY(select->isEnabled());
+    select->click();
+    list->setCurrentRow(-1);
+    resolver.reply("192.168.50.11");
+    QCOMPARE(dialog.result(), int(QDialog::Rejected));
+    list->setCurrentRow(0);
+    select->click();
+    resolver.reply("192.168.50.11");
+    QCOMPARE(dialog.result(), int(QDialog::Accepted));
+    QVERIFY(dialog.selectedHost().isEmpty());
+    QCOMPARE(dialog.connectionHost(), QString("192.168.50.11"));
+    QCOMPARE(dialog.connectionPort(), 34800);
   }
   void changedSelectionRequiresFreshConsent()
   {
